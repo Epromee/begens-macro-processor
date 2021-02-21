@@ -10,4 +10,4 @@ To write some types of queries for your godblessed enterprise database faster.
 
 ## How to use it?
 
-Well... (TODO: write this section)
+Check examples.sql and be happy.
