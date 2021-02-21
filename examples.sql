@@ -46,4 +46,13 @@ exec begens '
 go
 
 /* Example 2: */
--- place reserved for example 2
+
+-- see how this guy !!{NO_SUBST} supresses the output?
+exec begens '
+    select @@{hello world} as hello_world;
+    select @@{!!{NO_SUBST}I hate world} as missing_information;
+    select @@{goodbye world} as goodbye_world;
+', 0;
+
+
+
