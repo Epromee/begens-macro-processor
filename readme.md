@@ -2,7 +2,7 @@
 
 ## WTF?
 
-Begens (Beyond Generic Sql) is a macro processor. You feed it your TSQL code with macro-definitions, and it yields you good old TSQL back.
+Begens (Beyond Generic Sql) is a TSQL macro processor. You feed it your TSQL code with macro-definitions, and it yields you good old TSQL back.
 
 ## Why do I need it?
 
