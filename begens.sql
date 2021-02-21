@@ -3,7 +3,7 @@
     BEGENS (BEyond GENeric Sql) macroprocessor for MS SQL Server T-SQL;
     
     Version:
-        Begens macro processor 0.1
+        Begens macro processor 0.2
     Author:
         Egor Promyshlennikov
     Date:
@@ -16,6 +16,10 @@
     Brand new license's gonna be added later.
     
     To install to custom schema, grep/search /*SCHEMA*/
+    
+    Macro-commands:
+    
+    !!{NO_SUBST} -- makes output of current block not be substituted
     
 */
 
@@ -48,6 +52,8 @@ begin
         -- make Begens code be procedurable, so that we can use input variables in Begens code
         
         -- add decorators to #t table (by default it gets aggregated by a concat, but what if something else as well)
+        
+        -- add an option to comment in output tsql the original begens code
     */
     
     /* User called the procedure */
@@ -98,6 +104,8 @@ begin
 
         declare @prepared_code nvarchar(max) = '';
 
+        declare @no_substitution bit = 0;
+
         while @index <= len(@raw_code) and (substring(@raw_code, @index, 1) != '}' or @node_type = 0)
         begin
 
@@ -106,7 +114,19 @@ begin
             declare @yet_another_variable nvarchar(10);
             declare @previous_output nvarchar(max);
 
-            if @code_lookahead = '$${'
+            if @code_lookahead = '!!{'
+            begin
+                -- TODO: forbid {} inside the macro calls
+                declare @next_index_in_macro int = charindex('}', @raw_code, @index);
+                declare @macro_call nvarchar(max) = substring(@raw_code, @index + 3, @next_index_in_macro - @index - 3);
+                set @index = @next_index_in_macro + 1;
+                
+                if @macro_call = 'NO_SUBST'
+                begin
+                    set @no_substitution = 1;
+                end
+            end
+            else if @code_lookahead = '$${'
             begin
                 set @index = @index + 3;
                 exec /*SCHEMA*/begens @raw_code output, 0, @index output, @processed_code output, 2;
@@ -149,15 +169,10 @@ begin
         if substring(@raw_code, @index, 1) = '}'
             set @index = @index + 1;
 
-        if @node_type = 1
+        if @node_type = 1 or @node_type = 2
         begin
             insert into #pushup_output
-            select @prepared_code as core_prepared_code;
-        end
-        else if @node_type = 2
-        begin
-            insert into #pushup_output
-            select @prepared_code as core_prepared_code;
+            select iif(@no_substitution = 0, @prepared_code, '') as core_prepared_code;
         end
         else if @node_type = 0
         begin
