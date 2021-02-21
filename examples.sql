@@ -9,7 +9,7 @@ exec begens '
         
         exec(@@{
             
-            print @@{I mean, this is a string, and @@{this is an inner string}};
+            print @@{I mean, this is a string, and @@{this is an inner string @@{ and this guy is even more inner} wow 0_0 } o m g};
             
             print @@{$${
                     print @@{Hello world, I'' the first message here};
@@ -18,7 +18,7 @@ exec begens '
         });
     });
 
-', 1;
+';
 
 go
 
