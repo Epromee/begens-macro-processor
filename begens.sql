@@ -194,9 +194,8 @@ begin
         if @direct_inlining = 1
         begin
         
-            declare @direct_prepared_code nvarchar(max) = 'select ''' + @prepared_code + '''';
+            declare @direct_prepared_code nvarchar(max) = 'insert into #direct_inline_code select ''' + @prepared_code + '''';
             create table #direct_inline_code(t nvarchar(max));
-            insert into #direct_inline_code
             exec(@direct_prepared_code);
             set @direct_prepared_code = (select t from #direct_inline_code);
             drop table #direct_inline_code;
