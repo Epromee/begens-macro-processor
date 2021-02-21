@@ -37,12 +37,17 @@ begin
     set xact_abort on;
     
     /* TODO's
-        -- make multiple variable declaration
         -- strict code inlining in the beginning
-        -- macro variables
         -- checkout unclosed parenthesis in non-parent nodes
         -- process dummy parenthesis { as no operation
         -- don't emplace #t table if no $${} parenthesis was envolved
+        -- aggregate variable declarations (so we won't have to write those dumb "declare" statements every time)
+        
+        -- add macrocommands and variables (to reuse common blocks)
+        -- add compile-time inline blocks
+        -- make Begens code be procedurable, so that we can use input variables in Begens code
+        
+        -- add decorators to #t table (by default it gets aggregated by a concat, but what if something else as well)
     */
     
     /* User called the procedure */
