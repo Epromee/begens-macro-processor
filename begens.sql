@@ -3,7 +3,7 @@
     BEGENS (BEyond GENeric Sql) macroprocessor for MS SQL Server T-SQL;
     
     Version:
-        Begens macro processor 0.2
+        Begens macro processor 0.3
     Author:
         Egor Promyshlennikov
     Date:
@@ -19,7 +19,10 @@
     
     Macro-commands:
     
-    !!{NO_SUBST} -- makes output of current block not be substituted
+    !!{NO_SUBST} -- makes output of current block not be substituted.
+    !!{DIRECT_INLINE} -- substitutes your code in the block directly to the compiled code.
+                -- use DIRECT_INLINE for initializing temp tables and importing variables. 
+                -- DO NOT!!! use Begens macro inside the inlineable block.
     
 */
 
@@ -104,7 +107,9 @@ begin
 
         declare @prepared_code nvarchar(max) = '';
 
+        /* macro flags */
         declare @no_substitution bit = 0;
+        declare @direct_inlining bit = 0;
 
         while @index <= len(@raw_code) and (substring(@raw_code, @index, 1) != '}' or @node_type = 0)
         begin
@@ -125,25 +130,36 @@ begin
                 begin
                     set @no_substitution = 1;
                 end
+                else if @macro_call = 'DIRECT_INLINE'
+                begin
+                    set @direct_inlining = 1;
+                    set @no_substitution = 1; -- implies NO_SUBST
+                end;
             end
             else if @code_lookahead = '$${'
             begin
                 set @index = @index + 3;
                 exec /*SCHEMA*/begens @raw_code output, 0, @index output, @processed_code output, 2;
 
-                set @yet_another_variable = '@v' + cast((select top 1 vcnt from #used_variables) as nvarchar(10));
-                update #used_variables set vcnt = vcnt + 1;
-
                 set @previous_output = (select str from #pushup_output);
                 truncate table #pushup_output;
+                
+                /* optimization for returning nothing */
+                if @previous_output != ''
+                begin
 
-                set @processed_code = @processed_code + 'set @dy=N''' + @previous_output + ''';' + char(13) + char(10);
-                set @processed_code = @processed_code + 'declare ' + @yet_another_variable + ' nvarchar(max) = '''';' + char(13) + char(10);
-                set @processed_code = @processed_code + 'insert into #t(t) exec(@dy);' + char(13) + char(10)
-                set @processed_code = @processed_code + 'select ' + @yet_another_variable + ' = ' + @yet_another_variable + ' + t from #t order by id;' + char(13) + char(10);
-                set @processed_code = @processed_code + 'truncate table #t;' + char(13) + char(10);
+                    set @yet_another_variable = '@v' + cast((select top 1 vcnt from #used_variables) as nvarchar(10));
+                    update #used_variables set vcnt = vcnt + 1;
+                
+                    set @processed_code = @processed_code + 'set @dy=N''' + @previous_output + ''';' + char(13) + char(10);
+                    set @processed_code = @processed_code + 'declare ' + @yet_another_variable + ' nvarchar(max) = '''';' + char(13) + char(10);
+                    set @processed_code = @processed_code + 'insert into #t(t) exec(@dy);' + char(13) + char(10)
+                    set @processed_code = @processed_code + 'select ' + @yet_another_variable + ' = ' + @yet_another_variable + ' + t from #t order by id;' + char(13) + char(10);
+                    set @processed_code = @processed_code + 'truncate table #t;' + char(13) + char(10);
 
-                set @prepared_code = @prepared_code + '''+' + @yet_another_variable + '+''';
+                    set @prepared_code = @prepared_code + '''+' + @yet_another_variable + '+''';
+                
+                end;
 
             end
             else if @code_lookahead = '@@{'
@@ -151,14 +167,20 @@ begin
                 set @index = @index + 3;
                 exec /*SCHEMA*/begens @raw_code output, 0, @index output, @processed_code output, 1;
 
-                set @yet_another_variable = '@v' + cast((select top 1 vcnt from #used_variables) as nvarchar(10));
-                update #used_variables set vcnt = vcnt + 1;
-
                 set @previous_output = (select str from #pushup_output);
                 truncate table #pushup_output;
+                
+                /* optimization for returning nothing */
+                if @previous_output != ''
+                begin
 
-                set @processed_code = @processed_code + 'declare ' + @yet_another_variable + ' nvarchar(max)=N''' + @previous_output + ''';' + char(13) + char(10);
-                set @prepared_code = @prepared_code + '''''''+replace(' + @yet_another_variable + ',@qraw, @qrep)+N''''''';
+                    set @yet_another_variable = '@v' + cast((select top 1 vcnt from #used_variables) as nvarchar(10));
+                    update #used_variables set vcnt = vcnt + 1;
+
+                    set @processed_code = @processed_code + 'declare ' + @yet_another_variable + ' nvarchar(max)=N''' + @previous_output + ''';' + char(13) + char(10);
+                    set @prepared_code = @prepared_code + '''''''+replace(' + @yet_another_variable + ',@qraw, @qrep)+N''''''';
+                
+                end;
             end
             else begin
                 set @prepared_code = @prepared_code + replace(substring(@raw_code, @index, 1), '''', '''''');
@@ -168,6 +190,21 @@ begin
 
         if substring(@raw_code, @index, 1) = '}'
             set @index = @index + 1;
+            
+        if @direct_inlining = 1
+        begin
+        
+            declare @direct_prepared_code nvarchar(max) = 'select ''' + @prepared_code + '''';
+            create table #direct_inline_code(t nvarchar(max));
+            insert into #direct_inline_code
+            exec(@direct_prepared_code);
+            set @direct_prepared_code = (select t from #direct_inline_code);
+            drop table #direct_inline_code;
+        
+            set @processed_code = @processed_code + '/* DIRECT_INLINE begin */' + char(13) + char(10);
+            set @processed_code = @processed_code + @direct_prepared_code + char(13) + char(10);
+            set @processed_code = @processed_code + '/* DIRECT_INLINE end */' + char(13) + char(10);
+        end;
 
         if @node_type = 1 or @node_type = 2
         begin
