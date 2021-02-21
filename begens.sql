@@ -16,10 +16,12 @@
     The code is provided "as is", no warranty, no responsibility and all that stuff.
     Brand new license's gonna be added later.
     
+    To install to custom schema, grep/search /*SCHEMA*/
+    
 */
 
 /* Cool big brain procedure to make my SQL code even more badass */
-create procedure begens
+create procedure /*SCHEMA*/begens
 
     /* Use these variables: */
     @raw_code nvarchar(max) output, -- flush your kickass Begens code here
@@ -65,7 +67,7 @@ begin
         set @my_processed_code = @my_processed_code + 'declare @dy nvarchar(max);' + char(13) + char(10);
         set @my_processed_code = @my_processed_code + 'create table #t(id bigint identity(1, 1) unique clustered, t nvarchar(max));' + char(13) + char(10);
 
-        exec begens @raw_code output, 0, @my_index output, @my_processed_code output, 0;
+        exec /*SCHEMA*/begens @raw_code output, 0, @my_index output, @my_processed_code output, 0;
 
         set @my_processed_code = @my_processed_code + 'drop table #t;' + char(13) + char(10);
         set @my_processed_code = @my_processed_code + 'exec(@main);' + char(13) + char(10);
@@ -88,7 +90,6 @@ begin
             0 - core input
             1 - quote
             2 - pre-evaluated subquery
-
         */
 
         declare @prepared_code nvarchar(max) = '';
@@ -104,7 +105,7 @@ begin
             if @code_lookahead = '$${'
             begin
                 set @index = @index + 3;
-                exec begens @raw_code output, 0, @index output, @processed_code output, 2;
+                exec /*SCHEMA*/begens @raw_code output, 0, @index output, @processed_code output, 2;
 
                 set @yet_another_variable = '@v' + cast((select top 1 vcnt from #used_variables) as nvarchar(10));
                 update #used_variables set vcnt = vcnt + 1;
@@ -124,7 +125,7 @@ begin
             else if @code_lookahead = '@@{'
             begin
                 set @index = @index + 3;
-                exec begens @raw_code output, 0, @index output, @processed_code output, 1;
+                exec /*SCHEMA*/begens @raw_code output, 0, @index output, @processed_code output, 1;
 
                 set @yet_another_variable = '@v' + cast((select top 1 vcnt from #used_variables) as nvarchar(10));
                 update #used_variables set vcnt = vcnt + 1;
