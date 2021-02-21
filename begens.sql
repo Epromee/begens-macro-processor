@@ -219,7 +219,7 @@ begin
         end
         else if @node_type = 0
         begin
-            set @processed_code = @processed_code + 'declare @main nvarchar(max)=''' + @prepared_code + ''';' + char(13) + char(10);
+            set @processed_code = @processed_code + 'declare @main nvarchar(max)=N''' + @prepared_code + ''';' + char(13) + char(10);
             set @processed_code = @processed_code + 'drop table #t;' + char(13) + char(10);
             
             if (@defer_main = 0)
