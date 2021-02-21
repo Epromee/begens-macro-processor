@@ -1,6 +1,5 @@
 
 /*
-
     BEGENS (BEyond GENeric Sql) macroprocessor for MS SQL Server T-SQL;
     
     Version:
@@ -113,7 +112,7 @@ begin
                 set @previous_output = (select str from #pushup_output);
                 truncate table #pushup_output;
 
-                set @processed_code = @processed_code + 'set @dy=''' + @previous_output + ''';' + char(13) + char(10);
+                set @processed_code = @processed_code + 'set @dy=N''' + @previous_output + ''';' + char(13) + char(10);
                 set @processed_code = @processed_code + 'declare ' + @yet_another_variable + ' nvarchar(max) = '''';' + char(13) + char(10);
                 set @processed_code = @processed_code + 'insert into #t(t) exec(@dy);' + char(13) + char(10)
                 set @processed_code = @processed_code + 'select ' + @yet_another_variable + ' = ' + @yet_another_variable + ' + t from #t order by id;' + char(13) + char(10);
@@ -133,8 +132,8 @@ begin
                 set @previous_output = (select str from #pushup_output);
                 truncate table #pushup_output;
 
-                set @processed_code = @processed_code + 'declare ' + @yet_another_variable + ' nvarchar(max)=''' + @previous_output + ''';' + char(13) + char(10);
-                set @prepared_code = @prepared_code + '''''''+replace(' + @yet_another_variable + ',@qraw, @qrep)+''''''';
+                set @processed_code = @processed_code + 'declare ' + @yet_another_variable + ' nvarchar(max)=N''' + @previous_output + ''';' + char(13) + char(10);
+                set @prepared_code = @prepared_code + '''''''+replace(' + @yet_another_variable + ',@qraw, @qrep)+N''''''';
             end
             else begin
                 set @prepared_code = @prepared_code + replace(substring(@raw_code, @index, 1), '''', '''''');
@@ -163,5 +162,6 @@ begin
     end;
     
 end
+
 
 go
