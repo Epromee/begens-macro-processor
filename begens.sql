@@ -3,7 +3,7 @@
     BEGENS (BEyond GENeric Sql) macroprocessor for MS SQL Server T-SQL;
     
     Version:
-        Begens macro processor 0.3
+        Begens macro processor 0.4
     Author:
         Egor Promyshlennikov
     Date:
@@ -21,8 +21,10 @@
     
     !!{NO_SUBST} -- makes output of current block not be substituted.
     !!{DIRECT_INLINE} -- substitutes your code in the block directly to the compiled code.
-                -- use DIRECT_INLINE for initializing temp tables and importing variables. 
+                -- use DIRECT_INLINE for initializing temp tables and importing variables.
                 -- DO NOT!!! use Begens macro inside the inlineable block.
+    !!{DEFER_MAIN} -- instead of executing the last formed dynamic batch, it yields it as select
+                   -- the whole code is still BEING runned, all $${}'s are launched and substituted
     
 */
 
@@ -75,15 +77,7 @@ begin
         declare @my_processed_code nvarchar(max) = '';
         declare @my_index int = 1;
 
-        set @my_processed_code = @my_processed_code + 'declare @qraw varchar(10) = '''''''';' + char(13) + char(10);
-        set @my_processed_code = @my_processed_code + 'declare @qrep varchar(10) = '''''''''''';' + char(13) + char(10);
-        set @my_processed_code = @my_processed_code + 'declare @dy nvarchar(max);' + char(13) + char(10);
-        set @my_processed_code = @my_processed_code + 'create table #t(id bigint identity(1, 1) unique clustered, t nvarchar(max));' + char(13) + char(10);
-
         exec /*SCHEMA*/begens @raw_code output, 0, @my_index output, @my_processed_code output, 0;
-
-        set @my_processed_code = @my_processed_code + 'drop table #t;' + char(13) + char(10);
-        set @my_processed_code = @my_processed_code + 'exec(@main);' + char(13) + char(10);
 
         if (@just_translate = 1)
         begin
@@ -110,6 +104,15 @@ begin
         /* macro flags */
         declare @no_substitution bit = 0;
         declare @direct_inlining bit = 0;
+        declare @defer_main bit = 0;
+        
+        if @node_type = 0
+        begin
+            set @processed_code = @processed_code + 'declare @qraw varchar(10) = '''''''';' + char(13) + char(10);
+            set @processed_code = @processed_code + 'declare @qrep varchar(10) = '''''''''''';' + char(13) + char(10);
+            set @processed_code = @processed_code + 'declare @dy nvarchar(max);' + char(13) + char(10);
+            set @processed_code = @processed_code + 'create table #t(id bigint identity(1, 1) unique clustered, t nvarchar(max));' + char(13) + char(10);
+        end;
 
         while @index <= len(@raw_code) and (substring(@raw_code, @index, 1) != '}' or @node_type = 0)
         begin
@@ -134,6 +137,10 @@ begin
                 begin
                     set @direct_inlining = 1;
                     set @no_substitution = 1; -- implies NO_SUBST
+                end
+                else if @macro_call = 'DEFER_MAIN'
+                begin
+                    set @defer_main = 1;
                 end;
             end
             else if @code_lookahead = '$${'
@@ -213,6 +220,16 @@ begin
         else if @node_type = 0
         begin
             set @processed_code = @processed_code + 'declare @main nvarchar(max)=''' + @prepared_code + ''';' + char(13) + char(10);
+            set @processed_code = @processed_code + 'drop table #t;' + char(13) + char(10);
+            
+            if (@defer_main = 0)
+            begin
+                set @processed_code = @processed_code + 'exec(@main);' + char(13) + char(10);
+            end
+            else
+            begin
+                set @processed_code = @processed_code + 'select @main as deferred_main;' + char(13) + char(10);
+            end
         end;
     
     end;
