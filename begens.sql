@@ -3,11 +3,12 @@
     BEGENS (BEyond GENeric Sql) macroprocessor for MS SQL Server T-SQL;
     
     Version:
-        Begens macro processor 0.5
+        Begens macro processor 0.6
     Author:
         Egor Promyshlennikov
     Date:
-        21 February 2021
+        Since 21 February 2021
+        Last update 22 February 2021
     Contacts:
         https://github.com/Epromee
         https://vk.com/epromee
@@ -30,6 +31,9 @@
                                       -- gonna be computed only once)
      !!{YOUR_VAR} -- The name be different, like !!{MY_VAR}, !!{OUR_VAR}, !!{MY_SHIT} etc., if you
                  -- defined it as in previous macro construction, it would substitute @@{block} result once again
+     !!{NO_IE}  -- This means "No Insert Exec". It is used to disable insert exec from $${} statements
+                 -- and switches it to manual inserts
+     !!{INSERT_INLINE} -- And this is the manual insert, you write in like this: "$${!!{INSERT_INLINE} select @@{useless_stuff};}"
     
 */
 
@@ -116,6 +120,7 @@ begin
         declare @direct_inlining bit = 0;
         declare @defer_main bit = 0;
         declare @next_macro_declare_var bit = 0;
+        declare @no_insert_exec bit = 0;
         
         /* macro vars */
         declare @next_block_save_variable_at nvarchar(255);
@@ -167,6 +172,14 @@ begin
                 begin
                     set @next_macro_declare_var = 1;
                 end
+                else if @macro_call = 'NO_IE'
+                begin
+                    set @no_insert_exec = 1;
+                end
+                else if @macro_call = 'INSERT_INLINE'
+                begin
+                    set @prepared_code = @prepared_code + ' insert into #t(t) ';
+                end
                 else if @macro_call in (select mvar from #macro_variables)
                 begin
                     set @inserted_var = (select assignee from #macro_variables where mvar = @macro_call);
@@ -190,7 +203,14 @@ begin
                 
                     set @processed_code = @processed_code + 'set @dy=N''' + @previous_output + ''';' + char(13) + char(10);
                     set @processed_code = @processed_code + 'declare ' + @yet_another_variable + ' nvarchar(max) = '''';' + char(13) + char(10);
-                    set @processed_code = @processed_code + 'insert into #t(t) exec(@dy);' + char(13) + char(10)
+                    
+                    if @no_insert_exec = 1
+                    begin
+                        set @processed_code = @processed_code + 'exec(@dy);' + char(13) + char(10);
+                        set @no_insert_exec = 0;
+                    end else
+                        set @processed_code = @processed_code + 'insert into #t(t) exec(@dy);' + char(13) + char(10);
+                        
                     set @processed_code = @processed_code + 'select ' + @yet_another_variable + ' = ' + @yet_another_variable + ' + t from #t order by id;' + char(13) + char(10);
                     set @processed_code = @processed_code + 'truncate table #t;' + char(13) + char(10);
 
