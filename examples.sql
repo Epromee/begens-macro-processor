@@ -54,7 +54,7 @@ exec begens '
     select @@{goodbye world} as goodbye_world;
 ', 0;
 
-/* Example 3*/
+/* Example 3: */
 
 -- this dude uses DIRECT_INLINE to make a temporary table and then use it
 exec begens '
@@ -68,3 +68,32 @@ exec begens '
 
 ', 0;
 
+/* Example 4: */
+
+-- This one disables insert-exec in $$ statement and replaces it with manual inserts
+exec begens '
+    select @@{!!{NO_IE}$${
+        select @@{One } as outside
+        !!{INSERT_INLINE} select @@{Two }
+        select @@{Three } as outside
+        !!{INSERT_INLINE} select @@{Four }
+        select @@{Five } as outside
+        !!{INSERT_INLINE} select @@{Six }
+        select @@{Seven }
+    }} as inside;
+', 0;
+
+-- This one show differences
+exec begens '
+    select @@{Monday: $${ select@@{sun} }} as one;
+    select @@{Tuesday: !!{NO_IE}$${ select@@{rain} }} as two;
+    select @@{Wednesday: !!{NO_IE}$${ !!{INSERT_INLINE} select@@{fog} }} as wednesday;
+', 0;
+
+/* Example 5: */
+
+-- shows basic macro variable manipulation
+exec begens '
+    select !!{DECL_VAR}!!{BRUH}@@{hello world} as cnam
+    select !!{BRUH} as cnam2
+', 0;
