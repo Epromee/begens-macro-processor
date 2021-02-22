@@ -3,7 +3,7 @@
     BEGENS (BEyond GENeric Sql) macroprocessor for MS SQL Server T-SQL;
     
     Version:
-        Begens macro processor 0.4
+        Begens macro processor 0.5
     Author:
         Egor Promyshlennikov
     Date:
@@ -25,6 +25,11 @@
                 -- DO NOT!!! use Begens macro inside the inlineable block.
     !!{DEFER_MAIN} -- instead of executing the last formed dynamic batch, it yields it as select
                    -- the whole code is still BEING runned, all $${}'s are launched and substituted
+    !!{DECL_VAR}!!{YOUR_VAR}@@{block}  -- this is used to make a @@block result to be substituted next time
+                                      -- when you call it again (you  an use $${block} as well, but it's
+                                      -- gonna be computed only once)
+     !!{YOUR_VAR} -- The name be different, like !!{MY_VAR}, !!{OUR_VAR}, !!{MY_SHIT} etc., if you
+                 -- defined it as in previous macro construction, it would substitute @@{block} result once again
     
 */
 
@@ -59,6 +64,8 @@ begin
         -- add decorators to #t table (by default it gets aggregated by a concat, but what if something else as well)
         
         -- add an option to comment in output tsql the original begens code
+        
+        -- add an option to remove insert-exec from $$ statements, instead - add !!{INLINE_INSERT} macro
     */
     
     /* User called the procedure */
@@ -71,6 +78,9 @@ begin
 
         /* For pushing-up recursive call returns */
         create table #pushup_output(str nvarchar(max));
+        
+        /* Declared macro variables */
+        create table #macro_variables(mvar nvarchar(255) unique clustered, assignee nvarchar(max));
 
         /* Go ahead */
 
@@ -105,6 +115,10 @@ begin
         declare @no_substitution bit = 0;
         declare @direct_inlining bit = 0;
         declare @defer_main bit = 0;
+        declare @next_macro_declare_var bit = 0;
+        
+        /* macro vars */
+        declare @next_block_save_variable_at nvarchar(255);
         
         if @node_type = 0
         begin
@@ -121,6 +135,8 @@ begin
 
             declare @yet_another_variable nvarchar(10);
             declare @previous_output nvarchar(max);
+            
+            declare @inserted_var nvarchar(max);
 
             if @code_lookahead = '!!{'
             begin
@@ -129,7 +145,12 @@ begin
                 declare @macro_call nvarchar(max) = substring(@raw_code, @index + 3, @next_index_in_macro - @index - 3);
                 set @index = @next_index_in_macro + 1;
                 
-                if @macro_call = 'NO_SUBST'
+                if @next_macro_declare_var = 1
+                begin
+                    set @next_macro_declare_var = 0;
+                    set @next_block_save_variable_at = @macro_call;
+                end
+                else if @macro_call = 'NO_SUBST'
                 begin
                     set @no_substitution = 1;
                 end
@@ -141,6 +162,15 @@ begin
                 else if @macro_call = 'DEFER_MAIN'
                 begin
                     set @defer_main = 1;
+                end
+                else if @macro_call = 'DECL_VAR'
+                begin
+                    set @next_macro_declare_var = 1;
+                end
+                else if @macro_call in (select mvar from #macro_variables)
+                begin
+                    set @inserted_var = (select assignee from #macro_variables where mvar = @macro_call);
+                    set @prepared_code = @prepared_code + @inserted_var;
                 end;
             end
             else if @code_lookahead = '$${'
@@ -164,7 +194,26 @@ begin
                     set @processed_code = @processed_code + 'select ' + @yet_another_variable + ' = ' + @yet_another_variable + ' + t from #t order by id;' + char(13) + char(10);
                     set @processed_code = @processed_code + 'truncate table #t;' + char(13) + char(10);
 
-                    set @prepared_code = @prepared_code + '''+' + @yet_another_variable + '+''';
+                    set @inserted_var = '''+' + @yet_another_variable + '+''';
+                    
+                    set @prepared_code = @prepared_code + @inserted_var;
+                    
+                    if @next_block_save_variable_at is not null
+                    begin
+                        /* create a new macro var if doesn't exist */
+                        insert into #macro_variables(mvar)
+                        select (@next_block_save_variable_at)
+                        except
+                        select mvar from #macro_variables;
+                        
+                        /* set it a new in-code var */
+                        update #macro_variables
+                        set assignee = @yet_another_variable
+                        where mvar = @next_block_save_variable_at;
+                        
+                        /* done, no need to declare again */
+                        set @next_block_save_variable_at = null;
+                    end;
                 
                 end;
 
@@ -185,7 +234,26 @@ begin
                     update #used_variables set vcnt = vcnt + 1;
 
                     set @processed_code = @processed_code + 'declare ' + @yet_another_variable + ' nvarchar(max)=N''' + @previous_output + ''';' + char(13) + char(10);
-                    set @prepared_code = @prepared_code + '''''''+replace(' + @yet_another_variable + ',@qraw, @qrep)+N''''''';
+                    
+                    set @inserted_var = '''''''+replace(' + @yet_another_variable + ',@qraw, @qrep)+N''''''';
+                    set @prepared_code = @prepared_code + @inserted_var;
+                    
+                    if @next_block_save_variable_at is not null
+                    begin
+                        /* create a new macro var if doesn't exist */
+                        insert into #macro_variables(mvar)
+                        select (@next_block_save_variable_at)
+                        except
+                        select mvar from #macro_variables;
+                        
+                        /* set it a new in-code var */
+                        update #macro_variables
+                        set assignee = @inserted_var
+                        where mvar = @next_block_save_variable_at;
+                        
+                        /* done, no need to declare again */
+                        set @next_block_save_variable_at = null;
+                    end;
                 
                 end;
             end
