@@ -3,7 +3,7 @@
     BEGENS (BEyond GENeric Sql) macroprocessor for MS SQL Server T-SQL;
     
     Version:
-        Begens macro processor 0.6
+        Begens macro processor 0.7
     Author:
         Egor Promyshlennikov
     Date:
