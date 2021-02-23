@@ -58,14 +58,13 @@ exec begens '
 
 -- this dude uses DIRECT_INLINE to make a temporary table and then use it
 exec begens '
-    @@{!!{DIRECT_INLINE}
+    $${!!{DIRECT_INLINE}
         create table #test(str nvarchar(max));
         insert into #test values (''stuff1''), (''stuff2''), (''stuff3''); --see good old strings? NEVER use macro inside DIRECT_INLINE (yet) -_-
     }
 
     /* Here goes the normal Begens code */
     select @@{$${ select * from #test}} as sample_1;
-
 ', 0;
 
 /* Example 4: */
