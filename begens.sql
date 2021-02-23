@@ -69,6 +69,9 @@ begin
         -- track variable assigns and auto-reuse common variables without allocating new
         
         -- add an option to comment in output tsql the original begens code
+        
+        -- add caching (maybe in different procedure) to store already compiled codes for reusability
+        -- consider using configurable cache address, and make LRU cache of configurable size
     */
     
     /* User called the procedure */
