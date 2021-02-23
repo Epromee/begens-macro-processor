@@ -247,8 +247,11 @@ begin
                 truncate table #pushup_output;
                 
                 /* optimization for returning nothing */
-                if @previous_output != ''
+                if @previous_output = ''
                 begin
+                    set @prepared_code = @prepared_code + '''''''''';
+                end
+                else begin
 
                     set @yet_another_variable = '@v' + cast((select top 1 vcnt from #used_variables) as nvarchar(10));
                     update #used_variables set vcnt = vcnt + 1;
