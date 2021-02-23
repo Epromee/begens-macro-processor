@@ -97,3 +97,39 @@ exec begens '
     select !!{DECL_VAR}!!{BRUH}@@{hello world} as cnam
     select !!{BRUH} as cnam2
 ', 0;
+
+/* Example 6: */
+
+-- consider non-normalized table which we have obtained somehow
+create table #test(
+    city_id int,
+    city_name varchar(255),
+    person_id int,
+    person_name varchar(255),
+    occupation_id int,
+    occupation_name varchar(255)
+)
+
+-- I said somehow
+insert into #test values(16, 'Krasnodar', 54, 'Epromee', 1337, 'Developer');
+insert into #test values(17, 'Moscow', 57, 'John Doe', 98, 'Clerk');
+
+-- Well, now we want to select only those columns, which contain "name" in their, well, name
+exec begens '
+    
+    /* substitute previously selected column names and exec the script */
+    select $${
+        
+        /* select needed column names*/
+        declare @tmp varchar(max) = (select @@{$${
+            select name + @@{, }
+            from tempdb.sys.columns c
+            where c.object_id = object_id(@@{tempdb..#test}) and c.name like @@{%name%}
+            order by column_id;
+        }} t);
+
+        /* remove the last comma */
+        select left(@tmp, len(@tmp + @@{,}) - 3);
+    }
+    from #test;
+';
