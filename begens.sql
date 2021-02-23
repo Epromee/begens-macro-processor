@@ -55,21 +55,21 @@ begin
     set xact_abort on;
     
     /* TODO's
-        -- strict code inlining in the beginning
+        -- strict code inlining in the beginning (Not direct_inline I mean)
         -- checkout unclosed parenthesis in non-parent nodes
         -- process dummy parenthesis { as no operation
         -- don't emplace #t table if no $${} parenthesis was envolved
         -- aggregate variable declarations (so we won't have to write those dumb "declare" statements every time)
         
-        -- add macrocommands and variables (to reuse common blocks)
         -- add compile-time inline blocks
         -- make Begens code be procedurable, so that we can use input variables in Begens code
         
         -- add decorators to #t table (by default it gets aggregated by a concat, but what if something else as well)
+        -- decorators must be: prefix, postfix and delimiter
+        
+        -- track variable assigns and auto-reuse common variables without allocating new
         
         -- add an option to comment in output tsql the original begens code
-        
-        -- add an option to remove insert-exec from $$ statements, instead - add !!{INLINE_INSERT} macro
     */
     
     /* User called the procedure */
