@@ -228,7 +228,7 @@ begin
                         
                         /* set it a new in-code var */
                         update #macro_variables
-                        set assignee = @yet_another_variable
+                        set assignee = @inserted_var
                         where mvar = @next_block_save_variable_at;
                         
                         /* done, no need to declare again */
