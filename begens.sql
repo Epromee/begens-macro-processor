@@ -129,6 +129,8 @@ begin
         
         if @node_type = 0
         begin
+            set @processed_code = @processed_code + 'set nocount on;' + char(13) + char(10);
+            set @processed_code = @processed_code + 'set xact_abort on;' + char(13) + char(10);
             set @processed_code = @processed_code + 'declare @qraw varchar(10) = '''''''';' + char(13) + char(10);
             set @processed_code = @processed_code + 'declare @qrep varchar(10) = '''''''''''';' + char(13) + char(10);
             set @processed_code = @processed_code + 'declare @dy nvarchar(max);' + char(13) + char(10);
