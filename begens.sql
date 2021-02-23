@@ -1,9 +1,8 @@
-
 /*
     BEGENS (BEyond GENeric Sql) macroprocessor for MS SQL Server T-SQL;
     
     Version:
-        Begens macro processor 0.7
+        Begens macro processor 1.0
     Author:
         Egor Promyshlennikov
     Date:
@@ -186,35 +185,49 @@ begin
                     set @prepared_code = @prepared_code + @inserted_var;
                 end;
             end
-            else if @code_lookahead = '$${'
+            else if @code_lookahead = '$${' or @code_lookahead = '@@{'
             begin
                 set @index = @index + 3;
-                exec /*SCHEMA*/begens @raw_code output, 0, @index output, @processed_code output, 2;
+                
+                declare @exact_subquery int = iif(@code_lookahead = '$$', 2, 1);
+                exec /*SCHEMA*/begens @raw_code output, 0, @index output, @processed_code output, @exact_subquery;
 
                 set @previous_output = (select str from #pushup_output);
                 truncate table #pushup_output;
                 
+                if @no_substitution = 1
+                begin
+                    set @no_substitution = 0;
+                    set @previous_output = '';
+                end;
+                
                 /* optimization for returning nothing */
+                /* FROM $$*/
                 if @previous_output != ''
                 begin
-
                     set @yet_another_variable = '@v' + cast((select top 1 vcnt from #used_variables) as nvarchar(10));
                     update #used_variables set vcnt = vcnt + 1;
                 
-                    set @processed_code = @processed_code + 'set @dy=N''' + @previous_output + ''';' + char(13) + char(10);
-                    set @processed_code = @processed_code + 'declare ' + @yet_another_variable + ' nvarchar(max) = '''';' + char(13) + char(10);
-                    
-                    if @no_insert_exec = 1
+                    if @code_lookahead = '$${'
                     begin
-                        set @processed_code = @processed_code + 'exec(@dy);' + char(13) + char(10);
-                        set @no_insert_exec = 0;
-                    end else
-                        set @processed_code = @processed_code + 'insert into #t(t) exec(@dy);' + char(13) + char(10);
-                        
-                    set @processed_code = @processed_code + 'select ' + @yet_another_variable + ' = ' + @yet_another_variable + ' + t from #t order by id;' + char(13) + char(10);
-                    set @processed_code = @processed_code + 'truncate table #t;' + char(13) + char(10);
-
-                    set @inserted_var = '''+' + @yet_another_variable + '+''';
+                        set @processed_code = @processed_code + 'set @dy=N''' + @previous_output + ''';' + char(13) + char(10);
+                        set @processed_code = @processed_code + 'declare ' + @yet_another_variable + ' nvarchar(max) = '''';' + char(13) + char(10);
+                        if @no_insert_exec = 1
+                        begin
+                            set @processed_code = @processed_code + 'exec(@dy);' + char(13) + char(10);
+                            set @no_insert_exec = 0;
+                        end else
+                            set @processed_code = @processed_code + 'insert into #t(t) exec(@dy);' + char(13) + char(10);
+                        set @processed_code = @processed_code + 'select ' + @yet_another_variable + ' = ' + @yet_another_variable + ' + t from #t order by id;' + char(13) + char(10);
+                        set @processed_code = @processed_code + 'truncate table #t;' + char(13) + char(10);
+                        set @inserted_var = '''+' + @yet_another_variable + '+''';
+                    
+                    end
+                    else if @code_lookahead = '@@{'
+                    begin
+                        set @processed_code = @processed_code + 'declare ' + @yet_another_variable + ' nvarchar(max)=N''' + @previous_output + ''';' + char(13) + char(10);
+                        set @inserted_var = '''''''+replace(' + @yet_another_variable + ',@qraw, @qrep)+N''''''';
+                    end
                     
                     set @prepared_code = @prepared_code + @inserted_var;
                     
@@ -235,50 +248,12 @@ begin
                         set @next_block_save_variable_at = null;
                     end;
                 
-                end;
-
-            end
-            else if @code_lookahead = '@@{'
-            begin
-                set @index = @index + 3;
-                exec /*SCHEMA*/begens @raw_code output, 0, @index output, @processed_code output, 1;
-
-                set @previous_output = (select str from #pushup_output);
-                truncate table #pushup_output;
-                
-                /* optimization for returning nothing */
-                if @previous_output = ''
-                begin
-                    set @prepared_code = @prepared_code + '''''''''';
                 end
                 else begin
-
-                    set @yet_another_variable = '@v' + cast((select top 1 vcnt from #used_variables) as nvarchar(10));
-                    update #used_variables set vcnt = vcnt + 1;
-
-                    set @processed_code = @processed_code + 'declare ' + @yet_another_variable + ' nvarchar(max)=N''' + @previous_output + ''';' + char(13) + char(10);
-                    
-                    set @inserted_var = '''''''+replace(' + @yet_another_variable + ',@qraw, @qrep)+N''''''';
-                    set @prepared_code = @prepared_code + @inserted_var;
-                    
-                    if @next_block_save_variable_at is not null
-                    begin
-                        /* create a new macro var if doesn't exist */
-                        insert into #macro_variables(mvar)
-                        select (@next_block_save_variable_at)
-                        except
-                        select mvar from #macro_variables;
-                        
-                        /* set it a new in-code var */
-                        update #macro_variables
-                        set assignee = @inserted_var
-                        where mvar = @next_block_save_variable_at;
-                        
-                        /* done, no need to declare again */
-                        set @next_block_save_variable_at = null;
-                    end;
-                
+                    if @code_lookahead = '@@{'
+                        set @prepared_code = @prepared_code + '''''''''';
                 end;
+                
             end
             else begin
                 set @prepared_code = @prepared_code + replace(substring(@raw_code, @index, 1), '''', '''''');
@@ -306,7 +281,7 @@ begin
         if @node_type = 1 or @node_type = 2
         begin
             insert into #pushup_output
-            select iif(@no_substitution = 0, @prepared_code, '') as core_prepared_code;
+            select @prepared_code as core_prepared_code;
         end
         else if @node_type = 0
         begin
