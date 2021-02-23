@@ -194,6 +194,22 @@ begin
 
                 set @previous_output = (select str from #pushup_output);
                 truncate table #pushup_output;
+            
+                -- direct inlining must be before no_subst handle, because it impiles no_subst, but actually requires the output
+                if @direct_inlining = 1
+                begin
+                    set @direct_inlining = 0;
+
+                    declare @direct_prepared_code nvarchar(max) = 'insert into #direct_inline_code select ''' + @previous_output + '''';
+                    create table #direct_inline_code(t nvarchar(max));
+                    exec(@direct_prepared_code);
+                    set @direct_prepared_code = (select t from #direct_inline_code);
+                    drop table #direct_inline_code;
+
+                    set @processed_code = @processed_code + '/* DIRECT_INLINE begin */' + char(13) + char(10);
+                    set @processed_code = @processed_code + @direct_prepared_code + char(13) + char(10);
+                    set @processed_code = @processed_code + '/* DIRECT_INLINE end */' + char(13) + char(10);
+                end;
                 
                 if @no_substitution = 1
                 begin
@@ -263,20 +279,6 @@ begin
 
         if substring(@raw_code, @index, 1) = '}'
             set @index = @index + 1;
-            
-        if @direct_inlining = 1
-        begin
-        
-            declare @direct_prepared_code nvarchar(max) = 'insert into #direct_inline_code select ''' + @prepared_code + '''';
-            create table #direct_inline_code(t nvarchar(max));
-            exec(@direct_prepared_code);
-            set @direct_prepared_code = (select t from #direct_inline_code);
-            drop table #direct_inline_code;
-        
-            set @processed_code = @processed_code + '/* DIRECT_INLINE begin */' + char(13) + char(10);
-            set @processed_code = @processed_code + @direct_prepared_code + char(13) + char(10);
-            set @processed_code = @processed_code + '/* DIRECT_INLINE end */' + char(13) + char(10);
-        end;
 
         if @node_type = 1 or @node_type = 2
         begin
