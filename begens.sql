@@ -8,7 +8,7 @@
         Egor Promyshlennikov
     Date:
         Since 21 February 2021
-        Last update 22 February 2021
+        Last update 23 February 2021
     Contacts:
         https://github.com/Epromee
         https://vk.com/epromee
