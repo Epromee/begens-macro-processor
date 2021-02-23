@@ -133,3 +133,51 @@ exec begens '
     }
     from #test;
 ';
+
+
+/* Example 7: */
+
+-- Just like the previous one, but consider 2 different tables with the same metadata:
+create table #test1(
+    city_id int,
+    city_name varchar(255),
+    person_id int,
+    person_name varchar(255),
+    occupation_id int,
+    occupation_name varchar(255)
+)
+
+create table #test2(
+    city_id int,
+    city_name varchar(255),
+    person_id int,
+    person_name varchar(255),
+    occupation_id int,
+    occupation_name varchar(255)
+)
+
+-- And with different data:
+insert into #test1 values(16, 'Krasnodar', 54, 'Epromee', 1337, 'Developer');
+insert into #test2 values(17, 'Moscow', 57, 'John Doe', 98, 'Clerk');
+
+exec begens '
+    
+    /* substitute previously selected column names and exec the script, and assign it to a variable */
+    select !!{DECL_VAR}!!{THOSE_COLUMNS}$${
+        
+        /* select needed column names*/
+        declare @tmp varchar(max) = (select @@{$${
+            select name + @@{, }
+            from tempdb.sys.columns c
+            where c.object_id = object_id(@@{tempdb..#test1}) and c.name like @@{%name%}
+            order by column_id;
+        }} t);
+
+        /* remove the last comma */
+        select left(@tmp, len(@tmp + @@{,}) - 3);
+    }
+    from #test1;
+    
+    /* and let''s do it once again, but now with another table */
+    select !!{THOSE_COLUMNS} from #test2;
+', 0;
