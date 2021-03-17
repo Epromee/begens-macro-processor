@@ -72,6 +72,8 @@ begin
         
         -- add caching (maybe in different procedure) to store already compiled codes for reusability
         -- consider using configurable cache address, and make LRU cache of configurable size
+        
+        -- add ** block, which yields direct code substitution, it looks like it useless - but imagine using it with variables
     */
     
     /* User called the procedure */
